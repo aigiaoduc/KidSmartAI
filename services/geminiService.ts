@@ -163,10 +163,11 @@ export const generateStoryScript = async (topic: string, numberOfPages: number):
   }
 };
 
-// --- 4. Image Generation (Nano Banana / gemini-2.5-flash-image) ---
+// --- 4. Image Generation (MULTI-MODEL STRATEGY) ---
 export const generateImage = async (prompt: string): Promise<string | undefined> => {
+  // CHIẾN THUẬT 1: Thử model Nano Banana (Nhanh nhất)
   try {
-    // Sử dụng model Nano Banana (gemini-2.5-flash-image) chuyên cho tốc độ
+    console.log("[KidSmart] Đang thử tạo ảnh với Nano Banana (gemini-2.5-flash-image)...");
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -174,29 +175,71 @@ export const generateImage = async (prompt: string): Promise<string | undefined>
       },
     });
 
-    // Trích xuất ảnh từ inlineData (Base64)
     if (response.candidates && response.candidates.length > 0) {
         const content = response.candidates[0].content;
         if (content && content.parts) {
             for (const part of content.parts) {
                 if (part.inlineData && part.inlineData.data) {
                     const mimeType = part.inlineData.mimeType || 'image/png';
+                    console.log("[KidSmart] Thành công với Nano Banana!");
                     return `data:${mimeType};base64,${part.inlineData.data}`;
                 }
             }
         }
     }
-    return undefined;
-
+    console.warn("[KidSmart] Nano Banana không trả về dữ liệu ảnh, chuyển sang phương án 2...");
   } catch (e) {
-    console.error("Image Gen Error:", e);
-    return undefined;
+    console.warn("[KidSmart] Nano Banana gặp lỗi:", e);
   }
+
+  // CHIẾN THUẬT 2: Thử model Imagen 3 (Chất lượng cao, Ổn định)
+  // Lưu ý: Model này dùng hàm generateImages, không phải generateContent
+  try {
+    console.log("[KidSmart] Đang thử tạo ảnh với Imagen 3 (imagen-3.0-generate-001)...");
+    const response = await ai.models.generateImages({
+        model: 'imagen-3.0-generate-001',
+        prompt: prompt,
+        config: {
+            numberOfImages: 1,
+            aspectRatio: '1:1',
+            outputMimeType: 'image/jpeg'
+        }
+    });
+    
+    if (response.generatedImages && response.generatedImages.length > 0) {
+        const imgBytes = response.generatedImages[0].image.imageBytes;
+        if (imgBytes) {
+             console.log("[KidSmart] Thành công với Imagen 3!");
+             return `data:image/jpeg;base64,${imgBytes}`;
+        }
+    }
+    console.warn("[KidSmart] Imagen 3 không trả về dữ liệu ảnh.");
+  } catch (e) {
+     console.warn("[KidSmart] Imagen 3 gặp lỗi:", e);
+  }
+
+  // CHIẾN THUẬT 3: Thử Gemini 3 Pro Preview (Dự phòng cuối cùng)
+  try {
+    console.log("[KidSmart] Đang thử tạo ảnh với Gemini 3 Pro (gemini-3-pro-image-preview)...");
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-image-preview',
+        contents: { parts: [{ text: prompt }] },
+    });
+    if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+        }
+    }
+  } catch (e) {
+      console.error("[KidSmart] Tất cả các model tạo ảnh đều thất bại.", e);
+  }
+
+  return undefined;
 };
 
 // --- 5. Text to Speech (Native Browser) ---
-// Chức năng đọc (nghe) được xử lý trực tiếp ở Frontend (TeacherDashboard) bằng window.speechSynthesis
-// nên hàm này giữ nguyên trả về undefined để Frontend tự xử lý.
 export const generateSpeech = async (text: string): Promise<string | undefined> => {
   return undefined; 
 };
