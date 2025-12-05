@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KidSmart AI</title>
+    <!-- Tailwind CSS CDN (Keeping this for simplicity as requested to maintain current styling logic) -->
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              candy: {
+                pink: '#FF9AA2',
+                pinkDark: '#FF7B86',
+                peach: '#FFB7B2',
+                lemon: '#FFDAC1',
+                mint: '#E2F0CB',
+                mintDark: '#C1E1A7',
+                aqua: '#B5EAD7',
+                aquaDark: '#95DABF',
+                sky: '#C7CEEA',
+                skyDark: '#A2ACD6',
+                lavender: '#E0BBE4',
+                purple: '#957DAD',
+              }
+            },
+            fontFamily: {
+              sans: ['Quicksand', 'Comic Sans MS', 'ui-sans-serif', 'system-ui'],
+            },
+            boxShadow: {
+              '3d': '0 6px 0 0 rgba(0, 0, 0, 0.1)',
+              '3d-hover': '0 8px 0 0 rgba(0, 0, 0, 0.1)',
+              '3d-active': '0 0px 0 0 rgba(0, 0, 0, 0.1)',
+            },
+            animation: {
+              'wiggle': 'wiggle 1s ease-in-out infinite',
+              'float': 'float 3s ease-in-out infinite',
+              'bounce-slow': 'bounce 3s infinite',
+              'spin-slow': 'spin 8s linear infinite',
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
+              'pop': 'pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+            },
+            keyframes: {
+              wiggle: {
+                '0%, 100%': { transform: 'rotate(-3deg)' },
+                '50%': { transform: 'rotate(3deg)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              pop: {
+                '0%': { transform: 'scale(0.8)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Quicksand', sans-serif;
+        background-color: #fff9f9;
+        background-image: 
+          radial-gradient(rgba(255, 154, 162, 0.15) 15%, transparent 15%), 
+          radial-gradient(rgba(181, 234, 215, 0.15) 15%, transparent 15%);
+        background-position: 0 0, 20px 20px;
+        background-size: 40px 40px;
+        overflow-x: hidden;
+      }
+      ::-webkit-scrollbar {
+        width: 14px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #fff; 
+        border-radius: 10px;
+        border: 2px solid #f0f0f0;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #FF9AA2; 
+        border-radius: 10px;
+        border: 3px solid #fff;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #FF7B86; 
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "vite": "https://aistudiocdn.com/vite@^7.2.6"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <!-- Updated for Vite -->
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
