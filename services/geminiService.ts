@@ -136,27 +136,48 @@ export const generateStoryScript = async (topic: string, numberOfPages: number):
   };
 };
 
-// --- 4. Image Generation (Gemini) ---
+// --- 4. Image Generation (Gemini / Imagen) ---
 export const generateImage = async (prompt: string): Promise<string | undefined> => {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image', // Model chuyên biệt tạo ảnh
-      contents: { parts: [{ text: prompt }] },
+    // Sử dụng model Imagen 3 để tạo ảnh ổn định hơn
+    const response = await ai.models.generateImages({
+      model: 'imagen-3.0-generate-001',
+      prompt: prompt,
+      config: {
+        numberOfImages: 1,
+        outputMimeType: 'image/jpeg',
+        aspectRatio: '1:1', // Ảnh vuông
+      },
     });
 
-    const candidates = response.candidates;
-    if (candidates && candidates.length > 0) {
-       for (const part of candidates[0].content.parts) {
-         if (part.inlineData) {
-           return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-         }
-       }
+    const generatedImages = response.generatedImages;
+    if (generatedImages && generatedImages.length > 0) {
+       const imageBytes = generatedImages[0].image.imageBytes;
+       return `data:image/jpeg;base64,${imageBytes}`;
     }
     return undefined;
 
   } catch (e) {
     console.error("Gemini Image gen error:", e);
-    // Return undefined to let UI handle the missing image gracefully
+    // Nếu Imagen lỗi, thử fallback về model cũ
+    try {
+        console.log("Attempting fallback to gemini-2.5-flash-image...");
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [{ text: prompt }] },
+        });
+        const candidates = response.candidates;
+        if (candidates && candidates.length > 0) {
+            for (const part of candidates[0].content.parts) {
+                if (part.inlineData) {
+                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                }
+            }
+        }
+    } catch (fallbackError) {
+        console.error("Fallback failed:", fallbackError);
+    }
+    
     return undefined;
   }
 };
