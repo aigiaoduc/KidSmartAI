@@ -7,12 +7,15 @@ export default defineConfig(({ mode }) => {
   // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
   const env = loadEnv(mode, (process as any).cwd(), '');
   
+  // API Key provided explicitly for deployment
+  const DEFAULT_API_KEY = 'AIzaSyCxKIgmXjXVUm8T4SNsL2w7K5cjl2IDfTw';
+
   return {
     plugins: [react()],
     define: {
       // Polyfill process.env.API_KEY so it works in the browser
-      // Checks VITE_GEMINI_API_KEY first (local), then API_KEY (Vercel system env), or fallback string
-      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.API_KEY || '')
+      // Uses the provided key if no environment variable is found
+      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.API_KEY || DEFAULT_API_KEY)
     }
   };
 });
