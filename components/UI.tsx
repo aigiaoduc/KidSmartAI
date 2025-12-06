@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 // --- Colors & Styles ---
 // Using the colors defined in index.html tailwind config
@@ -87,3 +87,76 @@ export const LoadingSpinner: React.FC = () => (
     <span className="text-candy-pinkDark font-bold text-xl animate-pulse">Đang suy nghĩ...</span>
   </div>
 );
+
+// --- NEW COMPONENT: SmartImage ---
+// Handles image loading state with a fun placeholder animation and RETRY logic
+interface SmartImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+  fallbackSrc?: string;
+}
+
+export const SmartImage: React.FC<SmartImageProps> = ({ src, alt, className, fallbackSrc, ...props }) => {
+  const [currentSrc, setCurrentSrc] = useState(src);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Reset state when src prop changes
+  React.useEffect(() => {
+    setCurrentSrc(src);
+    setIsLoading(true);
+    setHasError(false);
+    setRetryCount(0);
+  }, [src]);
+
+  const handleRetry = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsLoading(true);
+    setHasError(false);
+    setRetryCount(prev => prev + 1);
+    // Append a unique timestamp to force browser to re-fetch the image
+    const separator = src?.includes('?') ? '&' : '?';
+    setCurrentSrc(`${src}${separator}retry=${Date.now()}`);
+  };
+
+  return (
+    <div className={`relative overflow-hidden bg-gray-100 group ${className}`}>
+      {/* Loading Skeleton / Animation */}
+      {isLoading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-10 transition-opacity">
+          <div className="w-full h-full absolute inset-0 bg-gradient-to-r from-gray-50 via-gray-100 to-gray-50 animate-[shimmer_2s_infinite]"></div>
+          <div className="relative z-20 flex flex-col items-center animate-pulse">
+            <span className="text-5xl mb-2 animate-bounce">🎨</span>
+            <span className="text-candy-pinkDark font-bold text-sm">Đang vẽ tranh...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Actual Image */}
+      {!hasError ? (
+        <img
+          src={currentSrc}
+          alt={alt}
+          className={`w-full h-full object-cover transition-opacity duration-700 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+          onLoad={() => setIsLoading(false)}
+          onError={() => {
+            setIsLoading(false);
+            setHasError(true);
+          }}
+          {...props}
+        />
+      ) : (
+        /* Error Placeholder with Retry Button */
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 text-gray-400 p-4 text-center">
+           <span className="text-4xl mb-2 grayscale opacity-50">🖼️</span>
+           <span className="text-xs font-bold mb-3">Chưa tải được ảnh</span>
+           <button 
+             onClick={handleRetry}
+             className="bg-candy-pink text-white text-xs font-bold px-4 py-2 rounded-full shadow-md hover:bg-candy-pinkDark hover:scale-105 transition-all active:scale-95 z-30"
+           >
+             🔄 Thử lại
+           </button>
+        </div>
+      )}
+    </div>
+  );
+};

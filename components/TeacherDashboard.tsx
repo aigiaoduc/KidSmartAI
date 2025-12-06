@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { TeacherTool, Story, Flashcard, FlashcardSet } from '../types';
-import { Button, Card, Input, PageTitle, LoadingSpinner } from './UI';
+import { Button, Card, Input, PageTitle, LoadingSpinner, SmartImage } from './UI';
 import { generateLessonPlan, generateFlashcardList, generateStoryScript, generateImage } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 
@@ -112,6 +112,13 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
 
   // Story States
   const [generatedStory, setGeneratedStory] = useState<Story | null>(null);
+  
+  // State mới: Theo dõi trang nào đang được tạo ảnh để khóa các nút khác
+  const [generatingPageIndex, setGeneratingPageIndex] = useState<number | null>(null);
+  
+  // State mới: Bộ đếm thời gian nghỉ (Cooldown) để tránh spam nút
+  const [cooldown, setCooldown] = useState<number>(0);
+
   const [isSpeaking, setIsSpeaking] = useState<string | null>(null); 
   
   // Library State
@@ -149,6 +156,14 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
     }
   }, []);
 
+  // Timer Effect for Cooldown
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
+
   // Keyboard navigation for Flashcard Viewer
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -181,6 +196,8 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
     setLessonPlan('');
     setFlashcards([]);
     setGeneratedStory(null);
+    setGeneratingPageIndex(null);
+    setCooldown(0); // Reset cooldown
     setPageCount(4);
     setCurrentFlashcardSetId(null);
     setSelectedCardIndex(null);
@@ -220,63 +237,67 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
     }
   };
 
+  // 1. Tạo kịch bản chữ trước (Script Only)
   const handleCreateStory = async () => {
     if (!topic) return;
     setLoading(true);
     setGeneratedStory(null);
+    setGeneratingPageIndex(null);
+    setCooldown(0);
     window.speechSynthesis.cancel();
     
     try {
-      // 1. Script
       setProgressStatus('Đang viết kịch bản truyện...');
       const storyBase = await generateStoryScript(topic, pageCount);
       setGeneratedStory(storyBase); 
-
-      // 2. Images (Sequential)
-      let updatedStory = { ...storyBase };
-      
-      // --- CẤU HÌNH PHONG CÁCH ẢNH & CẤM CHỮ ---
-      // Định nghĩa phong cách chủ đạo cho toàn bộ truyện
-      const masterStyle = "soft 3d cute cartoon style, warm lighting, pastel colors, high detail, masterpiece";
-      // Định nghĩa những thứ không muốn xuất hiện (Negative Prompt)
-      const negativePrompt = "no text, no words, no letters, no labels, no speech bubbles, no watermark, no signature";
-
-      for (let i = 0; i < updatedStory.pages.length; i++) {
-        setProgressStatus(`Đang vẽ minh họa trang ${i + 1}/${updatedStory.pages.length}...`);
-        
-        // Wait to avoid rate limits
-        if (i > 0) await delay(2000);
-
-        const page = updatedStory.pages[i];
-        
-        // Combine prompts: Style + Scene + Negative Constraints
-        const enhancedPrompt = `${masterStyle}. ${page.imagePrompt}. ${negativePrompt}`;
-
-        let imageUrl = undefined;
-        try {
-            imageUrl = await generateImage(enhancedPrompt);
-        } catch (imgError) {
-            console.warn("Failed to generate image for page " + i, imgError);
-            // Don't fail the whole story if one image fails
-        }
-        
-        updatedStory.pages[i] = {
-          ...page,
-          imageUrl: imageUrl 
-        };
-        
-        // Update state progressively so user sees progress
-        setGeneratedStory({ ...updatedStory });
-      }
-
-      setProgressStatus('Hoàn tất!');
       setLoading(false);
+      showToast('Đã xong kịch bản! Hãy bấm nút để vẽ từng trang nhé.', 'success');
     } catch (error) {
       console.error(error);
       setProgressStatus('Có lỗi xảy ra, vui lòng thử lại');
       setLoading(false);
       showToast('Có lỗi khi tạo truyện', 'error');
     }
+  };
+
+  // 2. Hàm tạo ảnh thủ công cho từng trang (Manual Page Generation)
+  const handleGeneratePageImage = async (pageIndex: number) => {
+      if (!generatedStory) return;
+
+      // Khóa hệ thống
+      setGeneratingPageIndex(pageIndex);
+      
+      const page = generatedStory.pages[pageIndex];
+      const masterStyle = "soft 3d cute cartoon style, warm lighting, pastel colors, high detail, masterpiece";
+      const negativePrompt = "no text, no words, no letters, no labels, no speech bubbles, no watermark, no signature";
+      const enhancedPrompt = `${masterStyle}. ${page.imagePrompt}. ${negativePrompt}`;
+
+      try {
+          // Tạo URL
+          const imageUrl = await generateImage(enhancedPrompt);
+          
+          // Cập nhật State
+          const updatedPages = [...generatedStory.pages];
+          updatedPages[pageIndex] = {
+              ...page,
+              imageUrl: imageUrl
+          };
+
+          setGeneratedStory({
+              ...generatedStory,
+              pages: updatedPages
+          });
+
+          // KÍCH HOẠT COOLDOWN 20 GIÂY
+          setCooldown(20);
+
+      } catch (error) {
+          console.error("Lỗi tạo ảnh trang " + pageIndex, error);
+          showToast('Không tạo được ảnh, hãy thử lại!', 'error');
+      } finally {
+          // Mở khóa hệ thống (nhưng cooldown vẫn chạy)
+          setGeneratingPageIndex(null);
+      }
   };
 
   const speakText = (text: string, id: string) => {
@@ -310,26 +331,34 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
       const list = await generateFlashcardList(topic, flashcardCount);
       setFlashcards(list);
 
-      // Generate images for cards sequentially
+      // Generate images for cards sequentially with 25s delay
       const updatedCards = [...list];
       for (let i = 0; i < updatedCards.length; i++) {
-          setProgressStatus(`Đang vẽ thẻ ${i+1}/${updatedCards.length}: ${updatedCards[i].word}`);
           
-          // Enhanced Prompt for clear flashcards without text
+          // Nếu không phải thẻ đầu tiên, đợi 25 giây
+          if (i > 0) {
+              for (let s = 25; s > 0; s--) {
+                  setProgressStatus(`Đang nghỉ để nạp năng lượng... Vẽ thẻ tiếp theo sau ${s}s`);
+                  await delay(1000);
+              }
+          }
+
+          setProgressStatus(`Đang vẽ thẻ ${i+1}/${updatedCards.length}: ${updatedCards[i].word}`);
+
           const cardPrompt = `Single isolated image of ${updatedCards[i].englishWord} (${updatedCards[i].visualDescription}). White background, high quality, realistic photography style. No text, no words, no labels.`;
           
           try {
              const imageUrl = await generateImage(cardPrompt);
              updatedCards[i].imageUrl = imageUrl;
-             setFlashcards([...updatedCards]); // Update UI
+             // Update state immediately to show placeholder
+             setFlashcards([...updatedCards]); 
           } catch (e) {
               console.error(e);
           }
-          await delay(1500);
       }
 
       setLoading(false);
-      showToast('Đã tạo xong bộ thẻ! 📷', 'success');
+      showToast('Đã gửi yêu cầu vẽ xong! 📷', 'success');
 
     } catch (error) {
       console.error(error);
@@ -487,7 +516,7 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
             />
         </div>
         <Button onClick={handleCreateStory} disabled={loading || !topic} size="lg">
-          {loading ? 'Đang viết...' : '✨ Sáng Tác'}
+          {loading ? 'Đang viết...' : '✨ Sáng Tác Kịch Bản'}
         </Button>
       </div>
 
@@ -513,36 +542,113 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
            </div>
 
           <div className="grid grid-cols-1 gap-12">
-            {generatedStory.pages.map((page, index) => (
-              <Card key={index} className="flex flex-col md:flex-row gap-8 items-center overflow-hidden" decoration={`${index + 1}`}>
-                <div className="w-full md:w-1/2 aspect-square bg-gray-100 rounded-2xl overflow-hidden shadow-inner border-4 border-white relative group">
-                  {page.imageUrl ? (
-                    <img src={page.imageUrl} alt="minh họa" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-300 flex-col gap-2">
-                        {loading ? <span className="animate-spin text-4xl">🖌️</span> : <span className="text-4xl">🖼️</span>}
-                        {!loading && <span className="text-sm font-bold text-gray-400">Không có ảnh</span>}
+            {generatedStory.pages.map((page, index) => {
+              // --- LOGIC KHÓA NÚT VÀ COOLDOWN ---
+              
+              const isThisPageGenerating = generatingPageIndex === index;
+              const hasImage = !!page.imageUrl;
+              
+              // Điều kiện mở khóa:
+              // 1. Nếu là trang đầu tiên: Luôn mở (trừ khi đang cooldown)
+              // 2. Nếu không: Trang trước phải có ảnh rồi.
+              const isPreviousPageDone = index === 0 || !!generatedStory.pages[index - 1].imageUrl;
+              
+              // Đang bị khóa bởi Cooldown?
+              // Chỉ áp dụng nếu trang này chưa có ảnh
+              const isCooldownActive = cooldown > 0 && !hasImage;
+              
+              // Có nên disable nút không?
+              // Disable khi: 
+              // - Trang trước chưa xong
+              // - Đang có trang nào đó đang generate
+              // - Đang trong thời gian cooldown
+              const isLocked = !isPreviousPageDone;
+              const isDisabled = isLocked || generatingPageIndex !== null || isCooldownActive;
+
+              return (
+                <Card key={index} className="flex flex-col md:flex-row gap-8 items-center overflow-hidden" decoration={`${index + 1}`}>
+                    <div className="w-full md:w-1/2 aspect-square bg-gray-100 rounded-2xl overflow-hidden shadow-inner border-4 border-white relative group">
+                    {hasImage ? (
+                        <div className="w-full h-full relative group">
+                            <SmartImage 
+                                src={page.imageUrl} 
+                                alt={`Trang ${index + 1}`} 
+                                className="w-full h-full"
+                            />
+                            {/* Nút vẽ lại */}
+                            <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button 
+                                    size="sm" 
+                                    variant="neutral" 
+                                    onClick={() => handleGeneratePageImage(index)}
+                                    // Vẫn cho phép vẽ lại nếu không có gì đang chạy và không cooldown
+                                    disabled={generatingPageIndex !== null || cooldown > 0}
+                                >
+                                    {cooldown > 0 ? `⏳ ${cooldown}s` : '🔄 Vẽ lại'}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 text-gray-300 gap-4 p-6 text-center">
+                            {isThisPageGenerating ? (
+                                <>
+                                    <div className="animate-spin text-5xl">🎨</div>
+                                    <p className="text-candy-pinkDark font-bold animate-pulse">Đang vẽ tranh...</p>
+                                </>
+                            ) : (
+                                <>
+                                    {isLocked ? (
+                                        <>
+                                            <span className="text-4xl grayscale opacity-50">🔒</span>
+                                            <p className="text-gray-400 font-bold text-sm">Hoàn thành trang trước để mở khóa</p>
+                                        </>
+                                    ) : (
+                                        // Nếu không bị khóa bởi trang trước, kiểm tra Cooldown
+                                        isCooldownActive ? (
+                                            <div className="flex flex-col items-center animate-pulse">
+                                                <span className="text-4xl mb-2">⏳</span>
+                                                <p className="text-gray-500 font-bold">Đợi {cooldown} giây...</p>
+                                                <div className="w-32 h-2 bg-gray-200 rounded-full mt-2 overflow-hidden">
+                                                    <div className="h-full bg-candy-pink transition-all duration-1000 ease-linear" style={{width: `${(cooldown / 20) * 100}%`}}></div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <Button 
+                                                onClick={() => handleGeneratePageImage(index)}
+                                                variant="primary"
+                                                size="lg"
+                                                className="w-full h-full flex flex-col gap-2 shadow-none border-0 bg-transparent hover:bg-candy-pink/10 text-candy-pinkDark"
+                                                disabled={isDisabled}
+                                            >
+                                                <span className="text-5xl">🖌️</span>
+                                                <span>Vẽ Minh Họa</span>
+                                            </Button>
+                                        )
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
                     </div>
-                  )}
-                </div>
-                <div className="w-full md:w-1/2 space-y-4">
-                  <div className="bg-candy-lemon/30 p-6 rounded-[24px] relative">
-                      <p className="text-xl text-gray-700 leading-relaxed font-medium">
-                        {page.text}
-                      </p>
-                  </div>
-                  <div className="flex justify-center">
-                    <Button 
-                        onClick={() => speakText(page.text, `${generatedStory.id}-${index}`)} 
-                        variant={isSpeaking === `${generatedStory.id}-${index}` ? "danger" : "secondary"}
-                        className="rounded-full"
-                    >
-                      {isSpeaking === `${generatedStory.id}-${index}` ? "⏹️ Dừng đọc" : "🔊 Đọc cho bé nghe"}
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                    <div className="w-full md:w-1/2 space-y-4">
+                    <div className="bg-candy-lemon/30 p-6 rounded-[24px] relative">
+                        <p className="text-xl text-gray-700 leading-relaxed font-medium">
+                            {page.text}
+                        </p>
+                    </div>
+                    <div className="flex justify-center">
+                        <Button 
+                            onClick={() => speakText(page.text, `${generatedStory.id}-${index}`)} 
+                            variant={isSpeaking === `${generatedStory.id}-${index}` ? "danger" : "secondary"}
+                            className="rounded-full"
+                        >
+                        {isSpeaking === `${generatedStory.id}-${index}` ? "⏹️ Dừng đọc" : "🔊 Đọc cho bé nghe"}
+                        </Button>
+                    </div>
+                    </div>
+                </Card>
+              );
+            })}
           </div>
           
           <div className="h-20"></div> {/* Spacer */}
@@ -564,7 +670,7 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
                           {/* Thumbnail from first page */}
                           <div className="w-20 h-20 rounded-xl bg-gray-100 overflow-hidden shrink-0">
                               {story.pages[0]?.imageUrl && (
-                                  <img src={story.pages[0].imageUrl} className="w-full h-full object-cover" alt="thumb" />
+                                  <SmartImage src={story.pages[0].imageUrl} className="w-full h-full" alt="thumb" />
                               )}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -673,9 +779,9 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
             >
                 <div className="aspect-square bg-gray-50 rounded-xl mb-3 overflow-hidden border-2 border-gray-100 relative">
                     {card.imageUrl ? (
-                        <img 
+                        <SmartImage 
                             src={card.imageUrl} 
-                            className="w-full h-full object-cover animate-fade-in" 
+                            className="w-full h-full" 
                             alt={card.word} 
                         />
                     ) : (
@@ -727,7 +833,7 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
                   >
                       <div className="w-full aspect-square md:aspect-video bg-gray-50 rounded-[24px] overflow-hidden mb-6 relative">
                          {flashcards[selectedCardIndex].imageUrl ? (
-                             <img 
+                             <SmartImage 
                                  src={flashcards[selectedCardIndex].imageUrl} 
                                  className="w-full h-full object-contain bg-black/5" 
                                  alt={flashcards[selectedCardIndex].word} 

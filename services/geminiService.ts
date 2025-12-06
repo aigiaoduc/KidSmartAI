@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Story, StoryPage, Flashcard, QuizQuestion } from "../types";
 
-// --- CẤU HÌNH API KEY ---
+// --- CẤU HÌNH API KEY (Chỉ dùng cho Text - Gemini) ---
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // --- Helper: Decode Audio (Browser only) ---
@@ -35,7 +35,7 @@ const cleanJsonString = (text: string): string => {
   return clean.trim();
 };
 
-// --- 1. Lesson Planner ---
+// --- 1. Lesson Planner (Gemini) ---
 export const generateLessonPlan = async (topic: string): Promise<string> => {
   const prompt = `
   Bạn là chuyên gia giáo dục mầm non. Hãy soạn giáo án cho chủ đề: "${topic}".
@@ -55,7 +55,7 @@ export const generateLessonPlan = async (topic: string): Promise<string> => {
   }
 };
 
-// --- 2. Flashcard Generator ---
+// --- 2. Flashcard Generator (Gemini) ---
 export const generateFlashcardList = async (topic: string, count: number): Promise<Flashcard[]> => {
   const prompt = `
   Tạo danh sách ${count} từ vựng cho trẻ mầm non về chủ đề: "${topic}".
@@ -95,7 +95,7 @@ export const generateFlashcardList = async (topic: string, count: number): Promi
   }
 };
 
-// --- 3. Story Generator (Text) ---
+// --- 3. Story Generator (Gemini - Text Only) ---
 export const generateStoryScript = async (topic: string, numberOfPages: number): Promise<Story> => {
   // Prompt được thiết kế lại để đảm bảo trả về JSON đúng cấu trúc
   const prompt = `
@@ -163,80 +163,34 @@ export const generateStoryScript = async (topic: string, numberOfPages: number):
   }
 };
 
-// --- 4. Image Generation (MULTI-MODEL STRATEGY) ---
+// --- 4. Image Generation (POLLINATIONS.AI) ---
 export const generateImage = async (prompt: string): Promise<string | undefined> => {
-  // CHIẾN THUẬT 1: Thử model Nano Banana (Nhanh nhất)
   try {
-    console.log("[KidSmart] Đang thử tạo ảnh với Nano Banana (gemini-2.5-flash-image)...");
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: prompt }]
-      },
-    });
-
-    if (response.candidates && response.candidates.length > 0) {
-        const content = response.candidates[0].content;
-        if (content && content.parts) {
-            for (const part of content.parts) {
-                if (part.inlineData && part.inlineData.data) {
-                    const mimeType = part.inlineData.mimeType || 'image/png';
-                    console.log("[KidSmart] Thành công với Nano Banana!");
-                    return `data:${mimeType};base64,${part.inlineData.data}`;
-                }
-            }
-        }
-    }
-    console.warn("[KidSmart] Nano Banana không trả về dữ liệu ảnh, chuyển sang phương án 2...");
-  } catch (e) {
-    console.warn("[KidSmart] Nano Banana gặp lỗi:", e);
-  }
-
-  // CHIẾN THUẬT 2: Thử model Imagen 3 (Chất lượng cao, Ổn định)
-  // Lưu ý: Model này dùng hàm generateImages, không phải generateContent
-  try {
-    console.log("[KidSmart] Đang thử tạo ảnh với Imagen 3 (imagen-3.0-generate-001)...");
-    const response = await ai.models.generateImages({
-        model: 'imagen-3.0-generate-001',
-        prompt: prompt,
-        config: {
-            numberOfImages: 1,
-            aspectRatio: '1:1',
-            outputMimeType: 'image/jpeg'
-        }
-    });
+    // 1. Clean and Prepare Prompt
+    // Pollinations hoạt động tốt nhất với tiếng Anh và prompt rõ ràng.
+    const seed = Math.floor(Math.random() * 1000000); // Random seed để ảnh cố định cho URL này
     
-    if (response.generatedImages && response.generatedImages.length > 0) {
-        const imgBytes = response.generatedImages[0].image.imageBytes;
-        if (imgBytes) {
-             console.log("[KidSmart] Thành công với Imagen 3!");
-             return `data:image/jpeg;base64,${imgBytes}`;
-        }
-    }
-    console.warn("[KidSmart] Imagen 3 không trả về dữ liệu ảnh.");
-  } catch (e) {
-     console.warn("[KidSmart] Imagen 3 gặp lỗi:", e);
-  }
+    // Clean prompt: remove newlines that break URLs and excessive spaces
+    const cleanPrompt = prompt.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
 
-  // CHIẾN THUẬT 3: Thử Gemini 3 Pro Preview (Dự phòng cuối cùng)
-  try {
-    console.log("[KidSmart] Đang thử tạo ảnh với Gemini 3 Pro (gemini-3-pro-image-preview)...");
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-image-preview',
-        contents: { parts: [{ text: prompt }] },
-    });
-    if (response.candidates?.[0]?.content?.parts) {
-        for (const part of response.candidates[0].content.parts) {
-            if (part.inlineData) {
-                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            }
-        }
-    }
-  } catch (e) {
-      console.error("[KidSmart] Tất cả các model tạo ảnh đều thất bại.", e);
-  }
+    // Cấu hình URL Pollinations
+    // Model 'flux' hiện tại cho chất lượng rất tốt.
+    // nologo=true để bỏ watermark.
+    // Lưu ý: Chúng ta trả về URL trực tiếp thay vì fetch Blob để tránh lỗi CORS.
+    // URL có chứa seed nên ảnh sẽ không bị đổi khi reload.
+    const encodedPrompt = encodeURIComponent(cleanPrompt + " , high quality, children book style, cute, vibrant colors, 4k, detailed");
+    const pollinationsUrl = `https://pollinations.ai/p/${encodedPrompt}?width=768&height=768&seed=${seed}&model=flux&nologo=true`;
 
-  return undefined;
+    console.log(`[KidSmart] Generated Image URL: ${pollinationsUrl}`);
+    
+    // Trả về URL trực tiếp
+    // Thẻ <img> của trình duyệt sẽ tự tải ảnh, không bị chặn bởi CORS trong JS.
+    return pollinationsUrl;
+
+  } catch (e) {
+    console.error("[KidSmart] Image Gen Error (Pollinations):", e);
+    return undefined;
+  }
 };
 
 // --- 5. Text to Speech (Native Browser) ---
