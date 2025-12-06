@@ -457,13 +457,13 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
   // --- Renders ---
 
   const renderMenu = () => (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-10">
+    <div className="max-w-6xl mx-auto relative">
+      <div className="flex justify-between items-center mb-10 relative z-10">
         <h2 className="text-4xl font-black text-gray-700">Góc Giáo Viên 👩‍🏫</h2>
         <Button variant="neutral" onClick={handleBack}>Thoát</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
         <button 
           onClick={() => setActiveTool(TeacherTool.STORY_CREATOR)}
           className="group relative bg-white rounded-[32px] p-8 text-center shadow-[0_10px_0_rgba(0,0,0,0.05)] border-4 border-candy-pink hover:-translate-y-2 hover:shadow-[0_15px_0_rgba(255,154,162,0.4)] transition-all"
@@ -823,7 +823,7 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
                       onClick={handlePrevCard}
                       className="text-white text-5xl hover:scale-125 transition-transform p-4 opacity-80 hover:opacity-100"
                   >
-                      ⬅️
+                      ➡️
                   </button>
 
                   {/* Main Large Card */}

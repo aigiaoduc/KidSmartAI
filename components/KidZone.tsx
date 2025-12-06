@@ -84,7 +84,8 @@ export const KidZone: React.FC<Props> = ({ onBack }) => {
   const [sheetStories, setSheetStories] = useState<ExternalStory[]>([]);
   const [showAddStoryModal, setShowAddStoryModal] = useState(false);
   const [newStoryTitle, setNewStoryTitle] = useState('');
-  const [newStoryUrl, setNewStoryUrl] = useState('');
+  const [newStoryUrl, setNewStoryTitleUrl] = useState('');
+  const [newStoryUrlState, setNewStoryUrlState] = useState(''); // Corrected state name to avoid conflict
 
   // External Game State
   const [localGames, setLocalGames] = useState<ExternalGame[]>([]);
@@ -156,9 +157,9 @@ export const KidZone: React.FC<Props> = ({ onBack }) => {
 
   // --- Story Logic ---
   const handleAddStory = () => {
-    if (!newStoryTitle.trim() || !newStoryUrl.trim()) return;
+    if (!newStoryTitle.trim() || !newStoryUrlState.trim()) return;
 
-    let formattedUrl = newStoryUrl.trim();
+    let formattedUrl = newStoryUrlState.trim();
     if (!/^https?:\/\//i.test(formattedUrl)) formattedUrl = 'https://' + formattedUrl;
 
     const randomColor = CARD_COLORS[Math.floor(Math.random() * CARD_COLORS.length)];
@@ -173,7 +174,7 @@ export const KidZone: React.FC<Props> = ({ onBack }) => {
     setLocalStories(updated);
     localStorage.setItem(EXTERNAL_STORY_KEY, JSON.stringify(updated));
     setNewStoryTitle('');
-    setNewStoryUrl('');
+    setNewStoryUrlState('');
     setShowAddStoryModal(false);
   };
 
@@ -227,27 +228,28 @@ export const KidZone: React.FC<Props> = ({ onBack }) => {
   // --- Renderers ---
   
   const renderMenu = () => (
-    <div className="max-w-6xl mx-auto flex flex-col items-center justify-center min-h-[60vh]">
-       <div className="flex justify-between w-full mb-8">
+    <div className="max-w-6xl mx-auto flex flex-col items-center justify-center min-h-[60vh] relative">
+       
+       <div className="flex justify-between w-full mb-8 relative z-10">
             <div></div>
             <Button variant="neutral" onClick={handleBack}>Thoát</Button>
        </div>
 
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-16 relative z-10">
           <button 
             onClick={() => setActivity(KidActivity.STORY_TIME)}
-            className="group relative flex flex-col items-center p-12 bg-white rounded-[40px] shadow-[0_20px_0_rgba(255,154,162,1)] border-[6px] border-candy-pink hover:-translate-y-4 hover:shadow-[0_30px_0_rgba(255,154,162,1)] transition-all duration-300 w-80 h-80 justify-center"
+            className="group relative flex flex-col items-center p-12 bg-white rounded-[40px] shadow-[0_20px_0_rgba(255,154,162,1)] border-[6px] border-candy-pink hover:-translate-y-4 hover:shadow-[0_30px_0_rgba(255,154,162,1)] transition-all duration-300 w-80 h-80 justify-center overflow-hidden"
           >
-             <span className="text-9xl mb-4 group-hover:scale-110 transition-transform block">📚</span>
-             <span className="text-4xl font-black text-candy-pinkDark uppercase tracking-wider">Đọc Truyện</span>
+             <span className="text-9xl mb-4 group-hover:scale-110 transition-transform block z-10">📚</span>
+             <span className="text-4xl font-black text-candy-pinkDark uppercase tracking-wider z-10">Đọc Truyện</span>
           </button>
 
           <button 
             onClick={() => setActivity(KidActivity.GAME_QUIZ)}
-            className="group relative flex flex-col items-center p-12 bg-white rounded-[40px] shadow-[0_20px_0_rgba(181,234,215,1)] border-[6px] border-candy-aqua hover:-translate-y-4 hover:shadow-[0_30px_0_rgba(181,234,215,1)] transition-all duration-300 w-80 h-80 justify-center"
+            className="group relative flex flex-col items-center p-12 bg-white rounded-[40px] shadow-[0_20px_0_rgba(181,234,215,1)] border-[6px] border-candy-aqua hover:-translate-y-4 hover:shadow-[0_30px_0_rgba(181,234,215,1)] transition-all duration-300 w-80 h-80 justify-center overflow-hidden"
           >
-             <span className="text-9xl mb-4 group-hover:scale-110 transition-transform block">🎮</span>
-             <span className="text-4xl font-black text-teal-600 uppercase tracking-wider">Trò Chơi</span>
+             <span className="text-9xl mb-4 group-hover:scale-110 transition-transform block z-10">🎮</span>
+             <span className="text-4xl font-black text-teal-600 uppercase tracking-wider z-10">Trò Chơi</span>
           </button>
        </div>
     </div>
@@ -359,8 +361,8 @@ export const KidZone: React.FC<Props> = ({ onBack }) => {
                     <div>
                         <label className="block text-gray-600 font-bold mb-2 text-lg">Đường dẫn (Link):</label>
                         <Input 
-                            value={newStoryUrl} 
-                            onChange={(e) => setNewStoryUrl(e.target.value)} 
+                            value={newStoryUrlState} 
+                            onChange={(e) => setNewStoryUrlState(e.target.value)} 
                             placeholder="https://youtube.com/..." 
                         />
                     </div>
