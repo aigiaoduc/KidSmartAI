@@ -500,12 +500,14 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
       <PageTitle icon="📖">Sáng Tác Truyện Tranh</PageTitle>
 
       <div className="flex flex-col md:flex-row gap-4 mb-8">
-        <Input 
-          placeholder="Nhập chủ đề truyện (VD: Bé Thỏ đi học, Chú voi con...)" 
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-        />
-        <div className="w-full md:w-32">
+        <div className="flex-1 w-full">
+            <Input 
+              placeholder="Nhập chủ đề truyện (VD: Bé Thỏ đi học, Chú voi con...)" 
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+            />
+        </div>
+        <div className="w-full md:w-32 shrink-0">
              <Input 
                 type="number" 
                 min="3" 
@@ -513,9 +515,10 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
                 value={pageCount}
                 onChange={(e) => setPageCount(Number(e.target.value))}
                 title="Số trang"
+                className="text-center"
             />
         </div>
-        <Button onClick={handleCreateStory} disabled={loading || !topic} size="lg">
+        <Button onClick={handleCreateStory} disabled={loading || !topic} size="lg" className="shrink-0 w-full md:w-auto">
           {loading ? 'Đang viết...' : '✨ Sáng Tác Kịch Bản'}
         </Button>
       </div>
@@ -698,13 +701,15 @@ export const TeacherDashboard: React.FC<Props> = ({ onBack }) => {
       <Button variant="neutral" onClick={handleBack} className="mb-6">← Quay lại</Button>
       <PageTitle icon="📝">Soạn Giáo Án</PageTitle>
 
-      <div className="flex gap-4 mb-8">
-        <Input 
-          placeholder="Chủ đề bài dạy (VD: Khám phá nước, Tết nguyên đán...)" 
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-        />
-        <Button onClick={handleCreateLessonPlan} disabled={loading || !topic} size="lg">
+      <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <div className="flex-1 w-full">
+            <Input 
+              placeholder="Chủ đề bài dạy (VD: Khám phá nước, Tết nguyên đán...)" 
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+            />
+        </div>
+        <Button onClick={handleCreateLessonPlan} disabled={loading || !topic} size="lg" className="shrink-0 w-full md:w-auto">
           {loading ? 'Đang soạn...' : '✍️ Soạn Bài'}
         </Button>
       </div>
