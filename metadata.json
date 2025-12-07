@@ -1,5 +1,8 @@
+
 {
   "name": "KidSmart AI",
   "description": "An interactive AI-powered platform for preschool teachers to create educational materials and for children to learn through stories and games.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

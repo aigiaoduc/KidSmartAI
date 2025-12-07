@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 
 // --- Colors & Styles ---
 // Using the colors defined in index.html tailwind config
@@ -71,12 +72,131 @@ export const PageTitle: React.FC<{ children: React.ReactNode; icon?: string }> =
   </div>
 );
 
-export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => (
-  <input 
-    className="w-full px-6 py-4 rounded-2xl border-4 border-gray-100 focus:border-candy-pink focus:bg-white bg-gray-50 outline-none transition-all text-gray-700 font-bold placeholder-gray-400 text-lg shadow-inner"
-    {...props}
-  />
-);
+// --- INPUT COMPONENT WITH VOICE RECOGNITION ---
+
+// Define SpeechRecognition interface for TypeScript
+interface IWindow extends Window {
+  webkitSpeechRecognition: any;
+  SpeechRecognition: any;
+}
+
+export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => {
+  const { className = '', value, onChange, type, ...rest } = props;
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Initialize SpeechRecognition
+    const { webkitSpeechRecognition, SpeechRecognition } = window as unknown as IWindow;
+    const SpeechRecognitionApi = SpeechRecognition || webkitSpeechRecognition;
+
+    if (SpeechRecognitionApi) {
+      const recognition = new SpeechRecognitionApi();
+      recognition.continuous = false; // Stop after one sentence
+      recognition.lang = 'vi-VN'; // Vietnamese
+      recognition.interimResults = false;
+
+      recognition.onstart = () => setIsListening(true);
+      
+      recognition.onend = () => setIsListening(false);
+      
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        
+        if (event.error === 'not-allowed') {
+            alert("Micro bị chặn! Vui lòng bấm vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ và chọn 'Cho phép' (Allow) Micro.");
+        } else if (event.error === 'no-speech') {
+            // Không nói gì thì thôi, không cần alert
+        } else {
+            // Các lỗi khác
+             console.log("Voice error: " + event.error);
+        }
+        
+        setIsListening(false);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (onChange) {
+            // Append the transcript to the existing value
+            const currentValue = (value as string) || '';
+            const newValue = currentValue ? `${currentValue} ${transcript}` : transcript;
+            
+            // Create a synthetic event to pass to onChange
+            const syntheticEvent = {
+              target: { value: newValue }
+            } as React.ChangeEvent<HTMLInputElement>;
+            
+            onChange(syntheticEvent);
+        }
+      };
+
+      recognitionRef.current = recognition;
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [value, onChange]);
+
+  const toggleListening = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent focus loss issues
+    if (!recognitionRef.current) {
+      alert("Trình duyệt của bạn không hỗ trợ ghi âm. Hãy thử dùng Google Chrome hoặc Edge trên máy tính nhé!");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      recognitionRef.current.start();
+    }
+  };
+
+  // Check if it's a number input (don't show mic)
+  const showMic = type !== 'number';
+
+  // Layout handling: 
+  // We need to wrap the input in a relative div to position the Mic.
+  // We transfer width/flex classes to the wrapper, and styling classes to the input.
+  
+  // Simple heuristic: if className has width/flex, apply to wrapper.
+  const isFlex = className.includes('flex');
+  const widthClass = className.match(/w-[^\s]+/) ? className.match(/w-[^\s]+/)?.[0] : 'w-full';
+  
+  return (
+    <div className={`relative ${isFlex ? 'flex-1' : ''} ${widthClass}`}>
+      <input 
+        type={type}
+        value={value}
+        onChange={onChange}
+        className={`w-full pl-6 pr-14 py-4 rounded-2xl border-4 border-gray-100 focus:border-candy-pink focus:bg-white bg-gray-50 outline-none transition-all text-gray-700 font-bold placeholder-gray-400 text-lg shadow-inner ${className.replace(/w-[^\s]+/, '').replace('flex-1', '')}`}
+        {...rest}
+      />
+      
+      {showMic && (
+        <button
+          type="button"
+          onClick={toggleListening}
+          className={`absolute right-3 top-[42%] -translate-y-1/2 p-2 rounded-full transition-all duration-300 z-10 flex items-center justify-center 
+            ${isListening 
+              ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(255,0,0,0.5)] animate-pulse scale-110' 
+              : 'bg-transparent text-gray-400 hover:text-candy-pink hover:bg-red-50'
+            }`}
+          title={isListening ? "Đang nghe... bấm để dừng" : "Bấm để nói"}
+        >
+           {isListening ? (
+             <span className="text-xl">🎙️</span>
+           ) : (
+             <span className="text-xl opacity-70">🎤</span>
+           )}
+        </button>
+      )}
+    </div>
+  );
+};
 
 export const LoadingSpinner: React.FC = () => (
   <div className="flex flex-col items-center justify-center p-8 gap-4">
